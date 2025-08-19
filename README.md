@@ -15,7 +15,7 @@ This project explores donor giving behavior for Tokyo Student Mobilization using
 - Donor segmentation into groups (Champions, At-Risk, Lapsed, etc.)
 
 ## Key Insights
-- 22% of donors are one-time contributors — potential for re-engagement.
+- 23% of donors are one-time contributors — potential for re-engagement.
 - "Champions" make up the majority of total donation volume.
 - Arizona and Texas account for the highest concentration of donor activity.
 - Recency is heavily right-skewed — most donors gave recently.
