@@ -12,7 +12,7 @@ This project explores donor giving behavior for Tokyo Student Mobilization using
 - Python (pandas, matplotlib, seaborn)
 - Data cleaning and transformation
 - Quantile-based binning for RFM scoring
-- Donor segmentation into groups (Champions, At-Risk, Lapsed, etc.)
+- Donor segmentation into groups (Champions, At-Risk, One-Time, etc.)
 
 ## Key Insights
 - 23% of donors are one-time contributors — potential for re-engagement.
