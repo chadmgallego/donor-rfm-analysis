@@ -11,6 +11,7 @@ This project explores donor giving behavior for Tokyo Student Mobilization using
 ## Methods Used
 - Python (pandas, matplotlib, seaborn)
 - Data cleaning and transformation
+- Exploratory Data Analysis (EDA)
 - Quantile-based binning for RFM scoring
 - Donor segmentation into groups (Champions, At-Risk, One-Time, etc.)
 
