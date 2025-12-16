@@ -14,17 +14,17 @@ This project explores donor giving behavior for Tokyo Student Mobilization using
 - Data cleaning and transformation
 - Exploratory Data Analysis (EDA)
 - Quantile-based binning for RFM scoring
-- Donor segmentation into groups (Champions, At-Risk, One-Time, etc.)
+- Donor segmentation into groups (Champions, Lapsed, One-Time, etc.)
 
 ## Key Insights
-- 23% of donors are one-time contributors — potential for re-engagement.
+- 22% of donors are one-time contributors — potential for re-engagement.
 - "Champions" make up the majority of total donation volume.
 - Arizona and Texas account for the highest concentration of donor activity.
-- Recency is heavily right-skewed — most donors gave recently.
+- The donor base exhibits a 69% retention rate.
 
 ## Data Source Disclosure
 Due to the sensitive nature of donor information, the raw CSV files are not publicly shared. All analyses, visualizations, and summaries are based on internal datasets to protect individual privacy. 
 
 ## Files
-- `donor_rfm_analysis.ipynb`: Full Jupyter notebook with code, visualizations, and insights.
+- `01_rfm_analysis.ipynb`: Full Jupyter notebook with code, visualizations, and insights.
 
