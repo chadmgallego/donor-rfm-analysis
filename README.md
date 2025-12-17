@@ -26,6 +26,6 @@ This project explores donor giving behavior for Tokyo Student Mobilization using
 Due to the sensitive nature of donor information, the raw CSV files are not publicly shared. All analyses, visualizations, and summaries are based on internal datasets to protect individual privacy. 
 
 ## Files
-- `01_rfm_analysis.ipynb`: Full Jupyter notebook with code, visualizations, and insights.
-- `01_donors_final.csv`: Processed and anonymized donor dataset.
+- `01_rfm_analysis.ipynb`: Full Jupyter notebook with code, visualizations, and insights
+- `01_donors_final.csv`: Processed and anonymized donor dataset
 
