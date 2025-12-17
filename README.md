@@ -27,4 +27,5 @@ Due to the sensitive nature of donor information, the raw CSV files are not publ
 
 ## Files
 - `01_rfm_analysis.ipynb`: Full Jupyter notebook with code, visualizations, and insights.
+- `01_donors_final.csv`: Processed and anonymized donor dataset.
 
