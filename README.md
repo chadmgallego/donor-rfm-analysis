@@ -1,4 +1,4 @@
-# Donor Analysis Using RFM Segmentation
+# Donor Behavior Analytics & Revenue Stability Assessment
 
 This project explores donor giving behavior for Tokyo Student Mobilization using Recency-Frequency-Monetary (RFM) segmentation. The goal is to uncover insights that can support donor engagement, retention, and geographic fundraising efforts.
 
