@@ -1,0 +1,57 @@
+
+version: 2
+
+models:
+    - name: donor_base_metrics
+      description: "base metrics on donor set"
+      columns:
+          - name: donor_type
+          - name: family_name
+            description: "The natural key for this table"
+            tests:
+                - unique
+                - not_null
+          - name: email
+            tests:
+                - not_null
+          - name: address_line_1
+          - name: address_line_2
+            description: "Most likely NULL"
+          - name: city
+          - name: state
+          - name: postal_code
+          - name: country
+          - name: monetary
+            data_type: float
+            description: "Total monetary contribution"
+            tests:
+                - not_null
+          - name: frequency
+            data_type: int
+            description: "How many donations have been contributed"
+            tests:
+                - not_null
+          - name: donation_start_date
+            data_type: timestamp
+            tests:
+                - not_null
+          - name: last_donation_date
+            data_type: timestamp
+            tests:
+                - not_null
+          - name: mean_amount
+            data_type: float
+          - name: med_amount
+            data_type: float
+          - name: max_amount
+            data_type: float
+          - name: min_amount
+            data_type: float
+          - name: recency
+            data_type: int
+            description: "How recently someone has contributed (# of days)"
+          - name: is_recurring
+            data_type: boolean
+            description: "Contributed more than once -- TRUE, otherwise -- FALSE"
+            tests:
+                - not_null
