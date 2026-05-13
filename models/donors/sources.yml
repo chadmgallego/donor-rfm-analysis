@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: donors_schema
+    database: donors
+    schema: donors_schema
+    tables:
+      - name: donors_norm
+      - name: transactions_norm
