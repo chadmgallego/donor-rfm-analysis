@@ -2,6 +2,8 @@
 
 A full end-to-end data analytics project covering data cleaning, deduplication, feature engineering, RFM segmentation, and interactive Tableau dashboards — applied to the donor base of Tokyo Student Mobilization, Inc. Built to support strategic retention, re-engagement, and geographically informed fundraising decisions.
 
+> **v2 Update:** The analysis pipeline has been fully migrated from Jupyter notebooks to a production-grade data stack using Snowflake and dbt. Raw data is ingested and normalized in Snowflake, transformed via dbt models (SQL + Python), and served to Tableau for visualization.
+
 ---
 
 ## 📋 Table of Contents
@@ -10,6 +12,7 @@ A full end-to-end data analytics project covering data cleaning, deduplication, 
 - [Business Context & Impact](#business-context--impact)
 - [Tech Stack](#tech-stack)
 - [Project Architecture](#project-architecture)
+- [dbt Model Lineage](#dbt-model-lineage)
 - [Key Metrics & Findings](#key-metrics--findings)
 - [Donor Segment Overview](#donor-segment-overview)
 - [Geographic Analysis](#geographic-analysis)
@@ -23,14 +26,20 @@ A full end-to-end data analytics project covering data cleaning, deduplication, 
 
 This project cleans, engineers, and segments a multi-year donor dataset from Student Mobilization, Inc., covering **139 donors** and **2,384 transactions** spanning February 2022 through December 2025. The pipeline resolves duplicate donor identities, constructs behavioral features from raw transaction histories, and applies a custom RFM (Recency-Frequency-Monetary) scoring framework to classify donors into actionable segments.
 
-The project is structured as four sequential notebooks plus a companion Excel workbook (`DonorContributionOverviewPublic.xlsx`) containing an anonymized donor table and segment-level contribution summary:
+### Version History
 
-| Notebook | Description |
-|---|---|
-| `01_data_cleaning_and_metrics` | Data loading, deduplication, donor identity normalization, feature engineering |
-| `02_exploratory_analysis_and_feature_engineering` | Distribution analysis, outlier detection, confidence intervals, state-level analysis, monthly donor classification |
-| `03_donor_segmentation_and_overview` | RFM scoring, quantile binning, segment assignment, segment behavior and geographic visualizations |
-| `04_insights_recommendations_and_limitations` | Business-facing summary of findings, strategic recommendations, and limitations |
+| Version | Stack | Description |
+|---|---|---|
+| v1 | Python, Jupyter, pandas | All analysis in sequential notebooks; CSV-based pipeline |
+| v2 | Snowflake, dbt, Python (Snowpark) | Fully migrated to cloud warehouse + dbt transformation layer |
+
+**v2 dbt models:**
+
+| Model | Type | Description |
+|---|---|---|
+| `donor_base_metrics` | SQL | Base aggregations per donor from raw transactions |
+| `donor_behavioral_features` | Python | Monthly donor classification, median donation interval |
+| `donor_segmentation_rfm` | Python | RFM scoring, quantile binning, segment assignment |
 
 ---
 
@@ -51,10 +60,13 @@ Tokyo Student Mobilization operates with a lean team and conducts annual in-pers
 
 | Category | Tools |
 |---|---|
-| **Data Processing** | Python, `pandas`, `numpy` |
-| **Deduplication & Identity Resolution** | Custom Python (email pattern matching, address-based household consolidation) |
-| **Feature Engineering** | `pandas` (groupby aggregations, window functions via `.diff()`, `.transform()`) |
-| **EDA & Visualization** | `matplotlib`, `seaborn` |
+| **Cloud Data Warehouse** | Snowflake |
+| **Data Ingestion & Normalization** | Snowflake Stages, Streams, Tasks, Stored Procedures |
+| **Transformation Layer** | dbt (SQL + Python models via Snowpark) |
+| **Data Processing** | Python, `pandas`, `numpy` (via dbt Python models) |
+| **Deduplication & Identity Resolution** | Custom Snowflake stored procedures (email pattern matching, address-based household consolidation) |
+| **Feature Engineering** | dbt SQL aggregations + pandas (groupby, `.diff()`, `.transform()`) |
+| **EDA & Visualization (v1)** | `matplotlib`, `seaborn` |
 | **Statistics** | `scipy.stats` — IQR outlier detection, normal approximation, confidence intervals |
 | **Segmentation** | Custom RFM scoring (quantile binning + regex segment mapping) |
 | **Reporting** | Excel (pivot tables, segment summary), Tableau (interactive dashboard) |
@@ -64,50 +76,45 @@ Tokyo Student Mobilization operates with a lean team and conducts annual in-pers
 ## Project Architecture
 
 ```
-Raw CSV Exports (donors_updated.csv, transactions_updated.csv)
+Raw CSV Exports (donors, transactions)
       │
       ▼
-Notebook 01: Data Cleaning & Metrics
-  ├── Negative transaction removal
-  ├── Column normalization (snake_case standardization)
-  ├── Donor identity resolution
-  │     ├── Duplicate name disambiguation (email + payment method matching)
-  │     ├── Multi-alias normalization (email pattern → canonical name)
-  │     └── Household consolidation (shared address → single donor record)
-  ├── Manual location imputation (3 donors with missing state/city)
-  ├── Feature engineering
-  │     ├── monetary, frequency, recency
-  │     ├── donation_start_date, last_donation_date
-  │     ├── mean_amount, med_amount, max_amount, min_amount
-  │     └── is_recurring
-  └── Dual CSV export (internal + anonymized public version)
+Snowflake Ingestion Layer
+  ├── External stages (S3/local CSV load)
+  ├── Streams & Tasks (incremental change capture)
+  ├── Normalization stored procedure (name/email resolution)
+  └── Deduplication procedure (household consolidation)
       │
       ▼
-Notebook 02: Exploratory Analysis & Feature Engineering
-  ├── Donation amount distribution (log-transformed KDE + histogram)
-  ├── Recurring vs. one-time donor breakdown
-  ├── Top one-time donors by monetary value
-  ├── IQR-based outlier detection → 95% CI for outlier donor proportion
-  ├── Monthly donor classification (median_recent_interval < 35 days)
-  ├── Donor summary table (Recurring Monthly / Recurring Not Monthly / One Time)
-  ├── RFM feature box plots (recency, frequency, monetary)
-  └── State-level bar charts (total donations + donor counts)
-      │
-      ▼
-Notebook 03: Donor Segmentation & Overview
-  ├── Initial segment labeling (one_time, rec_not_monthly)
-  ├── R-score: recency relative to 1.5× median donation interval
-  ├── F-score & M-score: quartile binning (25th/50th/75th percentiles → 1–4)
-  ├── RFM score concatenation (R + F + M string)
-  ├── Regex-based segment mapping
-  │     ├── champions   → RFM: 344
-  │     ├── loyal_donors → RFM: 3[3-4][1-3]
-  │     ├── big_spenders → RFM: 3[1-2]4
-  │     ├── lapsed       → RFM: 2[1-4][1-4]
-  │     └── churned      → RFM: 1[1-4][1-4]
-  ├── Segment behavior bar charts (donor count + total donations per segment)
-  ├── Geographic heatmap (segment × state: AZ, TX, CO)
-  └── Median donation KDE by segment (log scale)
+dbt Transformation Layer
+  │
+  ├── donor_base_metrics.sql
+  │     ├── Cast TRANS_DATE string → TIMESTAMP_TZ
+  │     ├── Cast AMOUNT string → FLOAT
+  │     ├── Aggregate per donor: SUM, COUNT, MIN, MAX, AVG, MEDIAN
+  │     ├── Compute RECENCY (days since last donation via DATEDIFF)
+  │     └── Derive IS_RECURRING (FREQUENCY > 1)
+  │
+  ├── donor_behavioral_features.py  (Snowpark / pandas)
+  │     ├── Pull donor_base_metrics + raw transactions
+  │     ├── Cast TRANS_DATE → datetime with UTC
+  │     ├── Sort transactions per donor ascending
+  │     ├── Compute DAYS_SINCE_PREV via groupby diff()
+  │     ├── Derive MEDIAN_RECENT_INTERVAL (tail(3) median per donor)
+  │     └── Derive IS_MONTHLY (interval < 35 days & IS_RECURRING)
+  │
+  └── donor_segmentation_rfm.py  (Snowpark / pandas)
+        ├── Initial segment labeling (one_time, rec_not_monthly)
+        ├── R-score: recency vs. 1.5× median donation interval
+        ├── Quantile bins for FREQUENCY & MONETARY (25/50/75th pct)
+        ├── F-score & M-score via pd.cut (quartile labels 1–4)
+        ├── RFM score concatenation (R + F + M string)
+        └── Regex-based segment mapping:
+              ├── champions      → RFM: 344
+              ├── loyal_donors   → RFM: 3[3-4][1-3]
+              ├── big_spenders   → RFM: 3[1-2]4
+              ├── lapsed         → RFM: 2[1-4][1-4]
+              └── churned        → RFM: 1[1-4][1-4]
       │
       ├──► reports/DonorContributionOverviewPublic.xlsx
       │      ├── ANONYMIZED_DONOR_TABLE    # Full cleaned donor export (no names)
@@ -119,6 +126,25 @@ Notebook 03: Donor Segmentation & Overview
              ├── Geographic map (donor density by state)
              ├── Segment count + donation volume bar charts
              └── Interactive date and segment filters
+```
+
+---
+
+## dbt Model Lineage
+
+```
+sources (Snowflake)
+  ├── donors_schema.donors_norm
+  └── donors_schema.transactions_norm
+        │
+        ▼
+  donor_base_metrics        [SQL table]
+        │
+        ▼
+  donor_behavioral_features [Python table]
+        │
+        ▼
+  donor_segmentation_rfm    [Python table]
 ```
 
 ---
@@ -163,8 +189,6 @@ Notebook 03: Donor Segmentation & Overview
 
 Full segment-level statistics are available in [`reports/DonorContributionOverviewPublic.xlsx`](reports/DonorContributionOverviewPublic.xlsx). Key highlights below.
 
-**By segment** (all 8 segments):
-
 - **Champions** (17 donors) — fully engaged, highest frequency and monetary value; median gift of ~$119, accounting for ~30% of total donation volume. Retaining this segment is the single highest fundraising priority.
 - **Churned** (32 donors) — 23% of the donor base with a median gift of ~$91; account for ~18% of total volume. Direct personal outreach to this group represents the highest-potential revenue recovery opportunity.
 - **Other** (31 donors) — the second-largest segment by count; median gift ~$98. The high concentration of Texas donors here suggests the current segmentation may not fully capture behavioral diversity in that state.
@@ -191,8 +215,6 @@ Full segment-level statistics are available in [`reports/DonorContributionOvervi
 
 ## Geographic Analysis
 
-**By state** (top 3 states by donor volume):
-
 - **Arizona (AZ)** — the dominant donor hub with 65+ donors, the highest total donations (~$167,000), and the largest count of Champions (11). Also has the most one-time and churned donors, presenting both a retention priority and a re-engagement opportunity in a single geography.
 - **Texas (TX)** — second-highest in donor count (35+) and total donations (~$80,000), but dominated by the `other` segment (24 donors). Signals a need for deeper exploratory analysis or enhanced segmentation to better characterize giving behavior in this state.
 - **Colorado (CO)** — third-largest donor base with 12 donors and ~$29,000 in total donations. Relatively balanced across segments, indicating a moderate but stable donor community.
@@ -207,59 +229,45 @@ Full segment-level statistics are available in [`reports/DonorContributionOvervi
 ![donation_patterns](figures/donation_patterns.png)
 > Left: Log-transformed distribution of all donation amounts, with a median of $100 — both the most common recurring gift and the distribution mode. The long right tail reflects infrequent but high-impact gifts. Right: 78% of donors have given more than once, underscoring a strong base of recurring supporters.
 
----
-
 ### RFM Feature Distributions (Monthly Donors)
 ![rfm_boxplots](figures/rfm_features_box.png)
-> Box plots for recency, frequency, and monetary value across the 103 monthly donors. Recency is highly right-skewed — median near zero — confirming that most monthly donors remain actively engaged. Frequency and monetary distributions are approximately symmetric, with outliers on the high end indicating a small group of exceptionally active and generous contributors.
-
----
+> Box plots for recency, frequency, and monetary value across the 103 monthly donors. Recency is highly right-skewed — median near zero — confirming that most monthly donors remain actively engaged.
 
 ### Total Donations & Donor Counts by State
 ![state_analysis](figures/state_by_state_bar.png)
-> Arizona and Texas lead in both total donation volume and donor concentration. The gap between Arizona and all other states is substantial, reinforcing its role as the primary focus for in-person fundraising and relationship-building efforts.
-
----
+> Arizona and Texas lead in both total donation volume and donor concentration.
 
 ### Donor Segment Distribution Across States
 ![segment_heatmap](figures/segment_heatmap.png)
-> Heatmap of donor segment counts for Arizona, Texas, and Colorado. Arizona shows the most diverse segment distribution and the highest concentration of Champions, while Texas is dominated by the `other` category — signaling an opportunity for segmentation refinement or dedicated outreach strategy in that state.
-
----
+> Heatmap of donor segment counts for Arizona, Texas, and Colorado.
 
 ### Number of Donors & Total Donations Per Segment
 ![segment_bars](figures/donor_segmentation.png)
-> Left: Churned donors are the most numerous segment (32), followed by Other (31) and One Time (30). Right: Despite representing only 12% of donors, Champions generate the largest share of donation volume — confirming that retention of this segment is the single highest fundraising priority.
-
----
+> Champions generate the largest share of donation volume despite representing only 12% of donors.
 
 ### Median Donation Distributions by Segment
 ![segment_kde](figures/segment_median_amounts.png)
-> KDE plot of median donation amounts per segment on a log scale. Champions, Churned, Lapsed, and Other show substantial distribution overlap near $100, suggesting similar typical gift sizes. Big Spenders are visibly right-shifted, confirming elevated giving amounts. One-time donors show the widest distribution, with notable density peaks at both $100 and $1,000.
-
----
+> KDE plot of median donation amounts per segment on a log scale.
 
 ### Tableau Dashboard: Donor Behavioral Trends & Segmentation Overview
 ![tableau_dashboard](dashboards/Donor_Trends_Segmentation_Overview.png)
-> Interactive dashboard summarizing 4 years of donor activity. Features include KPI tiles (total donors, monthly donors, total donations, median gift, monthly churn rate), a time-series area chart filterable by date range, a U.S. choropleth map of donor density by state, and segment-level bar charts for both donor count and donation volume. An embedded insight callout highlights that Champions account for 30% of total volume despite representing only 12% of donors.
+> Interactive dashboard summarizing 4 years of donor activity with KPI tiles, time-series trend, geographic map, and segment bar charts.
 
 ---
 
 ## Limitations & Future Work
 
 **Current limitations:**
-
-- **Incomplete donor coverage** — this dataset represents one subdivision of the broader Student Mobilization donor base; donors who give to multiple subdivisions or individuals may have fragmented histories not captured here
-- **Limited donor attributes** — no demographic, campaign-specific, or engagement data (e.g., email open rates, event attendance) were available, limiting the depth of behavioral modeling
-- **Quantile binning artifacts** — RFM scores depend on quartile thresholds, which can misclassify donors near boundaries; natural clusters in the data are not accounted for
-- **Static snapshot** — recency calculations are anchored to a fixed analysis date; results will drift as donor activity continues
+- **Incomplete donor coverage** — this dataset represents one subdivision of the broader Student Mobilization donor base
+- **Limited donor attributes** — no demographic, campaign-specific, or engagement data were available
+- **Quantile binning artifacts** — RFM scores depend on quartile thresholds which can misclassify donors near boundaries
+- **Static snapshot** — recency calculations are anchored to the model run date
 
 **Planned improvements:**
-
-- Expand dataset to include other organizational subdivisions to enable a complete donor-level view
-- Incorporate campaign-level and engagement data (email, events) to enrich segmentation features
+- Expand dataset to include other organizational subdivisions
+- Incorporate campaign-level and engagement data (email, events)
 - Explore unsupervised clustering (k-means, DBSCAN) as an alternative to quantile-based RFM scoring
-- Automate data refresh to maintain recency accuracy on a rolling basis
+- Schedule dbt runs for automated data refresh
 - Build a predictive churn model to identify at-risk monthly donors before lapsing occurs
 
 ---
@@ -267,19 +275,17 @@ Full segment-level statistics are available in [`reports/DonorContributionOvervi
 ## Repository Structure
 
 ```
-donor-behavior-analytics/
+donor-rfm-analysis/
 ├── dashboards/
-│   ├── Donor_Trends_Segmentation_Overview.png  # Tableau dashboard screenshot
-│   └── README.md
+│   └── Donor_Trends_Segmentation_Overview.png
 ├── data/
 │   ├── donors/
-│   │   ├── 01_donor_base_metrics_anonymized.csv         # Donor-level features (post cleaning)
-│   │   ├── 02_donor_behavioral_features_anonymized.csv  # + monthly classification features
-│   │   └── 03_donor_segmentation_rfm_anonymized.csv     # + RFM scores and segment labels
-│   ├── transactions/
-│   │   ├── 01_transactions_cleaned_anonymized.csv        # Cleaned transaction records
-│   │   └── 02_transactions_processed_anonymized.csv      # + outlier flags
-│   └── README.md
+│   │   ├── 01_donor_base_metrics_anonymized.csv
+│   │   ├── 02_donor_behavioral_features_anonymized.csv
+│   │   └── 03_donor_segmentation_rfm_anonymized.csv
+│   └── transactions/
+│       ├── 01_transactions_cleaned_anonymized.csv
+│       └── 02_transactions_processed_anonymized.csv
 ├── figures/
 │   ├── donation_patterns.png
 │   ├── donor_segmentation.png
@@ -287,14 +293,28 @@ donor-behavior-analytics/
 │   ├── segment_heatmap.png
 │   ├── segment_median_amounts.png
 │   └── state_by_state_bar.png
-├── notebooks/
+├── models/
+│   └── donors/
+│       ├── donor_base_metrics.sql         # Base donor aggregations
+│       ├── donor_behavioral_features.py   # Monthly classification + interval features
+│       ├── donor_segmentation_rfm.py      # RFM scoring + segment assignment
+│       ├── schema.yml                     # Column types, tests, descriptions
+│       └── sources.yml                    # Snowflake source definitions
+├── notebooks/                             # v1 analysis (Jupyter)
 │   ├── 01_data_cleaning_and_metrics.ipynb
 │   ├── 02_exploratory_analysis_and_feature_engineering.ipynb
 │   ├── 03_donor_segmentation_and_overview.ipynb
 │   └── 04_insights_recommendations_and_limitations.ipynb
 ├── reports/
-│   ├── contribution_overview.png
 │   └── DonorContributionOverviewPublic.xlsx
+├── snowflake/                             # Snowflake infrastructure SQL (pre-dbt layer)
+│   ├── donors_db_schema_tables.sql        # Database, schema, and table definitions
+│   ├── donors_stages_streams_tasks.sql    # Ingestion pipeline (stages, streams, tasks)
+│   ├── duplicates_check_table_procedure.sql
+│   ├── manual_refresh.sql
+│   ├── name_normalization_table.sql
+│   └── normalization_procedure.sql
+├── dbt_project.yml
 └── README.md
 ```
 
